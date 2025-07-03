@@ -1,0 +1,55 @@
+<body>
+  <a href="/orders.html">View Orders</a>
+  <a href="/customers.html">View Customers</a>
+  <h1>Products</h1>
+  <h2>Add Product</h2>
+  <form id="add-product-form">
+    <input type="text" id="product-name" placeholder="Product Name" required>
+    <input type="number" id="product-price" placeholder="Price" step="0.01" required>
+    <button type="submit">Add Product</button>
+  </form>
+  <ul id="product-list"></ul>
+  <p>Note: Ensure you have allowed CORS in your API for this to work.</p>
+  <p>Make sure your API Gateway is running on <code>http://localhost:5000</code>.</p>
+  <script>
+    fetch('http://localhost:5000/Product')
+      .then(res => res.json())
+      .then(products => {
+        const list = document.getElementById('product-list');
+        products.forEach(product => {
+          const li = document.createElement('li');
+          li.innerText = `${product.id}: ${product.name} ($${product.price})`;
+          list.appendChild(li);
+        });
+      })
+      .catch(err => {
+        document.body.innerHTML += `<p style="color:red;">Error loading products. Did you allow CORS?</p>`;
+      });
+
+    document.getElementById('add-product-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const name = document.getElementById('product-name').value;
+      const price = parseFloat(document.getElementById('product-price').value);
+
+      fetch('http://localhost:5000/Product', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, price })
+      })
+      .then(res => {
+        if (!res.ok) return res.json().then(err => Promise.reject(err));
+        return res.json();
+      })
+      .then(product => {
+        const list = document.getElementById('product-list');
+        const li = document.createElement('li');
+        li.innerText = `${product.id}: ${product.name} ($${product.price})`;
+        list.appendChild(li);
+        document.getElementById('add-product-form').reset();
+      })
+      .catch(err => {
+        alert(err.error || 'Error adding product');
+      });
+    });
+  </script>
+</body>
