@@ -16,7 +16,13 @@ namespace ProductService.Controllers
         {
             _context = context;
         }
-
+        public class ProductCreateDto
+        {
+            public string Name { get; set; }
+            public decimal Price { get; set; }
+            public int CategoryId { get; set; }
+            public int Stock { get; set; }
+        }
         // GET: /Product
         [HttpGet]
         public async Task<ActionResult<IEnumerable<object>>> Get()
@@ -37,43 +43,49 @@ namespace ProductService.Controllers
 
         // POST: /Product
         [HttpPost]
-        public async Task<ActionResult<Product>> Post([FromBody] Product product)
+        public async Task<ActionResult<Product>> Post([FromBody] ProductCreateDto dto)
         {
             // Simple validation
-            if (string.IsNullOrWhiteSpace(product.Name))
+            if (string.IsNullOrWhiteSpace(dto.Name))
                 return BadRequest(new { error = "Product name is required" });
-            if (product.Price < 0)
+            if (dto.Price < 0)
                 return BadRequest(new { error = "Price cannot be negative" });
 
             // Validate CategoryId exists
-            var category = await _context.Categories.FindAsync(product.CategoryId);
+            var category = await _context.Categories.FindAsync(dto.CategoryId);
             if (category == null)
                 return BadRequest(new { error = "Invalid CategoryId" });
 
             // Check for duplicate product (same name and category)
             var duplicate = await _context.Products
-                .AnyAsync(p => p.Name == product.Name && p.CategoryId == product.CategoryId);
+                .AnyAsync(p => p.Name == dto.Name && p.CategoryId == dto.CategoryId);
 
             if (duplicate)
                 return Conflict(new { error = "A product with the same name and category already exists." });
 
+            var product = new Product
+            {
+                Name = dto.Name,
+                Price = dto.Price,
+                CategoryId = dto.CategoryId
+            };
+
             _context.Products.Add(product);
             await _context.SaveChangesAsync();
 
-            // Automatically create inventory for the new product with default stock 0
+            // Create inventory for the new product with user-specified stock
             _context.Inventories.Add(new Inventory
             {
                 ProductId = product.Id,
-                Stock = 0
+                Stock = dto.Stock // Use the stock value from the DTO
             });
             await _context.SaveChangesAsync();
 
             // Optionally include the category in the returned product
-            product.Category = category;
+            product.Category = await _context.Categories.FindAsync(dto.CategoryId);
 
             return CreatedAtAction(nameof(Get), new { id = product.Id }, product);
         }
-
         // PUT: /Product/{id}
         [HttpPut("{id}")]
         public async Task<IActionResult> Put(int id, [FromBody] Product product)
